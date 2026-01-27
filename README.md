@@ -1,0 +1,389 @@
+# SwarmKeeper
+
+Like to open a trillion ClaudeCodes in parallel but tired of watching them?
+We got some ease for your ADHD!
+A CLI tool to manage and observe coding agent sessions using tmux and LLM analysis.
+
+## Overview
+
+SwarmKeeper creates named tmux sessions, monitors their output, and uses OpenAICompatible api to determine if agents are working or stopped. 
+It maintains a registry of current sessions and their health history.
+
+Compared to other methods like ACP (AgentClientProtocol) this allows agents to work in their native interface.
+Overseer is just a small layer to get current state and monitor.
+
+## How it works:
+
+1. Open a terminal and run `swarmkeeper start` => opens tmux => you enter your coding agent
+2. (in separate pane) Run `swarmkeeper list` to see tracked sessions, `swarmkeeper manager` to analyze them.
+
+### Key Features
+
+- **Session Management**: Automatic animal-based naming (agent-01-spider, agent-02-bear, etc.)
+- **LLM Analysis**: Automatically detects if agents are working or stopped
+- **Session Registry**: Tracks all sessions and their health history
+- **Custom Naming**: Use `--name` flag for custom session names
+- **Auto-configuration**: Creates config files automatically on first use
+- **Dead Session Cleanup**: Automatically removes stopped sessions from registry
+
+### Use Cases
+
+- Run multiple agent sessions in parallel
+- Monitor agent progress without manual checking
+- Keep history of agent activity
+- Debug stopped or stuck sessions
+
+---
+
+## Prerequisites
+
+### Windows Users
+
+SwarmKeeper uses tmux, which needs a Windows-compatible implementation:
+
+**psmux** (recommended for basic usage)
+   - GitHub: https://github.com/marlocarlo/psmux
+   - Install: `choco install psmux` or download from GitHub (better - its more fresh rn)
+
+
+### Unix/Linux Users
+
+tmux is typically pre-installed. If not:
+- Ubuntu/Debian: `sudo apt-get install tmux`
+- macOS: `brew install tmux`
+
+---
+
+## Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd SwarmKeeper
+   ```
+
+2. Install Python dependencies:
+   ```bash
+   uv sync
+   ```
+
+---
+
+## Configuration
+
+Create a config file at `~/swarmkeeper/config.json`:
+(it auto created at first call anyway)
+
+```json
+{
+  "apiBase": "http://localhost:8080/v1",
+  "model": "llamacpp",
+  "apiKey": "your-api-key-here",
+  "params": {
+    "temperature": 0.2
+    ...any other llm params
+  }
+}
+```
+
+### Configuration Options
+
+- `apiBase`: Base URL for the LLM API (default: OpenAI's API)
+- `model`: Model identifier (default: "gpt-4o-mini")
+- `apiKey`: Your API key for the LLM service
+- `params`: Additional model parameters (e.g., temperature)
+
+The config file will be automatically created on first use if it doesn't exist.
+
+---
+
+## Usage
+
+### Basic Commands
+
+```bash
+# Start a new session
+python main.py start "echo hello"
+
+# Start with custom name
+python main.py start --name "my-agent" "echo hello"
+
+# List all sessions
+python main.py list
+
+# Dump session output to file
+python main.py dump
+
+# Run manager to check all sessions
+python main.py manager
+```
+
+### Workflow
+
+1. **Start sessions**:
+   ```bash
+   # Agent 1: Running a task
+   python main.py start "python task.py"
+
+   # Agent 2: Monitoring logs
+   python main.py start "tail -f /var/log/app.log"
+   ```
+
+2. **Monitor sessions**:
+   ```bash
+   # Check health of all sessions
+   python main.py manager
+   ```
+
+3. **View output**:
+   ```bash
+   # Dump output to file
+   python main.py dump > session-output.txt
+   ```
+
+4. **Clean up**:
+   ```bash
+   # Kill a specific session
+   python main.py stop agent-01-spider
+
+   # Kill all sessions
+   python main.py stop all
+   ```
+
+---
+
+## CLI Commands
+
+### `start`
+
+Start a new tmux session with the given command.
+
+**Usage:**
+```bash
+python main.py start [--name NAME] <command>
+```
+
+**Options:**
+- `--name NAME`: Custom session name (optional, uses auto-generated name if omitted)
+- `<command>`: The command to run in the session
+
+**Examples:**
+```bash
+python main.py start "echo hello"
+python main.py start --name "my-custom-agent" "python script.py"
+```
+
+### `list`
+
+List all tracked sessions.
+
+**Usage:**
+```bash
+python main.py list
+```
+
+**Output:**
+```
+agent-01-spider    working    analyzing code
+agent-02-bear      stopped    Session no longer exists
+```
+
+### `dump`
+
+Dump the output of the last session to a file.
+
+**Usage:**
+```bash
+python main.py dump [output_file]
+```
+
+**Options:**
+- `output_file`: Output filename (default: `~/swarmkeeper/session-output.txt`)
+
+**Examples:**
+```bash
+python main.py dump
+python main.py dump > my-session.txt
+```
+
+### `manager`
+
+Run the LLM manager to check all sessions and update their health status.
+
+**Usage:**
+```bash
+python main.py manager
+```
+
+**Behavior:**
+- Analyzes all tracked sessions using LLM
+- Updates session registry with health checks
+- Automatically removes dead sessions from registry
+- Prints status for each session
+
+**Output:**
+```
+Session agent-01-spider: working - analyzing code
+Session agent-02-bear: dead - removing from registry
+```
+
+### `stop`
+
+Stop a specific session or all sessions.
+
+**Usage:**
+```bash
+python main.py stop <session_name> | all
+```
+
+**Options:**
+- `<session_name>`: Name of the session to stop (e.g., `agent-01-spider`)
+- `all`: Stop all tracked sessions
+
+**Examples:**
+```bash
+python main.py stop agent-01-spider
+python main.py stop all
+```
+
+---
+
+## Architecture
+
+### Components
+
+1. **Configuration Module** (`swarmkeeper/config/`)
+   - Manages config and sessions registry files
+   - Auto-creates files on first use
+
+2. **Session Management Module** (`swarmkeeper/session/`)
+   - Generates animal-based session names
+   - Tracks session health history
+   - Manages session registry
+
+3. **Tmux Integration Module** (`swarmkeeper/tmux/`)
+   - Windows-compatible tmux wrapper
+   - Captures pane output
+   - Manages tmux sessions
+
+4. **Manager/Observer Module** (`swarmkeeper/manager/`)
+   - LLM-based session analysis
+   - Generates health reports
+   - Updates session status
+
+5. **CLI Interface** (`main.py`)
+   - User command-line interface
+   - Handles all user interactions
+
+### Session Naming Convention
+
+Sessions are automatically named with the pattern: `agent-XX-{animal}`
+- `XX`: Sequential number (01, 02, 03, ...)
+- `{animal}`: Random animal from a predefined list
+
+This makes it easy to identify and manage multiple sessions.
+
+### Health Detection
+
+The manager uses LLM analysis to determine session health:
+- **working**: Session is actively processing work
+- **stopped**: Session has stopped (no longer exists or idle)
+- **error**: Session encountered an error
+
+---
+
+## Advanced Usage
+
+### Custom Session Names
+
+Use the `--name` flag for custom naming:
+
+```bash
+python main.py start --name "database-migration" "python migrate.py"
+python main.py start --name "frontend-dev" "npm run dev"
+```
+
+### Running Multiple Agents
+
+Start multiple sessions and monitor them together:
+
+```bash
+# Terminal 1
+python main.py start "python backend.py"
+
+# Terminal 2
+python main.py start "python frontend.py"
+
+# Terminal 3 (monitor all)
+python main.py manager
+```
+
+### Viewing Session History
+
+The session registry (`~/swarmkeeper/sessions.json`) contains the full history:
+
+```json
+{
+  "agent-01-spider": {
+    "created": "2026-01-28T00:57:56",
+    "command": "echo hello",
+    "checks": [
+      {"time": "2026-01-28T01:00:00", "status": "working", "log": "analyzing code"},
+      {"time": "2026-01-28T01:01:00", "status": "stopped", "log": "Session no longer exists"}
+    ]
+  }
+}
+```
+
+
+---
+
+## Troubleshooting
+
+### Session not found
+- Check session name with `python main.py list`
+- Verify session exists with `tmux ls`
+
+### LLM API errors
+- Check `~/swarmkeeper/config.json` for correct API key
+- Verify `apiBase` points to valid LLM server
+- Test API connection: `curl <apiBase>/models`
+
+### Windows tmux issues
+- Ensure psmux is installed and in PATH
+- Check tmux version: `tmux -V`
+- Try restarting tmux server: `tmux kill-server`
+
+---
+
+## Roadmap
+
+### v1 - monitoring first
+
+Goal: one interface to rule them all
+
+[x] basic checking the current state on demand
+[ ] watch sessions and analyze when they stop/wait for you to check/errored
+[ ] notifications when a session stops working
+
+??? your idea? web gui?
+
+### v2 - proactive management
+
+Goal: reduce your time babysitting them 5x
+
+[ ] detect when agent failed due to internal error, not a real end turn - like malformed tool call or other
+[ ] add manager sending in "continue" when it stops failing
+[ ] create an interface with swarmkeeper translating your "go on" into detailed instructions 
+
+
+## You may also like:
+
+**silc**:
+- For advanced usage requiring full shell control, it allows you to coexist with your agent in same shell same way as tmux does
+- GitHub: https://github.com/lirrensi/silc
+- Use when you need features like shared shells, multiple panes, etc.
+
+## License
+
+MIT License
