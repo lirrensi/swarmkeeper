@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from ..config.manager import load_sessions, save_sessions
+from ..manager.loop import run_loop
 from ..manager.observer import generate_report, run_manager
 from ..session.manager import create_session as create_session_entry
 from ..tmux.wrapper import (
@@ -133,3 +134,59 @@ def manager_command() -> list[dict]:
     # Generate fresh reports for display
     reports = generate_report(sessions)
     return [report.model_dump() for report in reports]
+
+
+def manager_loop_command(interval: int | None = None, confirm: bool = False) -> dict:
+    """Run manager loop with configurable interval.
+
+    Repeatedly checks all sessions and stops when any session becomes stopped.
+    Provides configurable timing and false positive prevention.
+
+    Args:
+        interval: Check interval in seconds. Default is 180 seconds (3 minutes).
+        confirm: If True, requires 2 consecutive stopped checks per session before stopping
+            to reduce false positives. Default is False.
+
+    Returns:
+        Updated sessions registry with new check entries.
+
+    Behavior:
+        - Loads sessions registry
+        - Calls run_loop() with configured parameters
+        - Displays user-friendly output
+        - Saves registry after completion
+        - Non-blocking - loop runs in foreground
+
+    Example:
+        >>> # Fast mode (default) - stops immediately on first stopped session
+        >>> manager_loop_command()
+        >>> # Check every minute
+        >>> manager_loop_command(interval=60)
+        >>> # Conservative mode - requires 2 consecutive checks
+        >>> manager_loop_command(confirm=True)
+
+    Raises:
+        KeyboardInterrupt: If user interrupts with Ctrl+C
+        Exception: If manager encounters errors during checks
+    """
+    # Load sessions registry
+    sessions = load_sessions()
+
+    # Display configuration
+    print(f"\nRunning manager loop")
+    print(f"  Interval: {interval or 180} seconds")
+    print(f"  Confirmation mode: {'enabled' if confirm else 'disabled'}")
+    print(f"  Sessions to monitor: {len(sessions)}")
+    print("\nPress Ctrl+C to stop\n")
+
+    # Run loop with configured parameters
+    updated_sessions = run_loop(
+        sessions, interval_seconds=interval or 180, require_confirmation=confirm
+    )
+
+    # Save registry
+    save_sessions(updated_sessions)
+
+    print(f"\nRegistry saved. {len(updated_sessions)} sessions tracked.")
+
+    return updated_sessions

@@ -4,7 +4,14 @@ import argparse
 import sys
 import os
 
-from swarmkeeper.cli import dump_command, list_command, manager_command, start_command, stop_command
+from swarmkeeper.cli import (
+    dump_command,
+    list_command,
+    manager_command,
+    manager_loop_command,
+    start_command,
+    stop_command,
+)
 from swarmkeeper.config.manager import load_config
 
 # Force UTF-8 encoding on Windows BEFORE any other imports
@@ -50,7 +57,21 @@ def main():
     subparsers.add_parser("dump", help="Display all session outputs")
 
     # manager command
-    subparsers.add_parser("manager", help="Run manager to check all sessions")
+    manager_parser = subparsers.add_parser("manager", help="Run manager to check all sessions")
+
+    # manager-loop command
+    manager_loop_parser = subparsers.add_parser("manager-loop", help="Run continuous manager loop")
+    manager_loop_parser.add_argument(
+        "--interval",
+        type=int,
+        default=180,
+        help="Check interval in seconds (default: 180)",
+    )
+    manager_loop_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Require 2 consecutive checks before stopping",
+    )
 
     # stop command
     stop_parser = subparsers.add_parser("stop", help="Stop a tmux session")
@@ -99,6 +120,9 @@ def main():
                     print()
             else:
                 print("No sessions to check")
+
+        elif args.command == "manager-loop":
+            manager_loop_command(interval=args.interval, confirm=args.confirm)
 
         elif args.command == "stop":
             output = stop_command(args.session_name)

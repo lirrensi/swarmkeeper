@@ -245,6 +245,80 @@ Session agent-01-spider: working - analyzing code
 Session agent-02-bear: dead - removing from registry
 ```
 
+### `manager-loop`
+
+Run continuous monitoring loop that repeatedly checks all sessions and stops when any session becomes stopped.
+
+**Usage:**
+```bash
+swarmkeeper manager-loop [options]
+```
+
+**Options:**
+- `--interval SECONDS`: Check interval in seconds (default: 180)
+- `--confirm`: Require 2 consecutive checks before stopping
+
+**Behavior:**
+- Repeatedly calls manager to check all sessions
+- Stops when ANY session is stopped (alive=False)
+- Non-blocking - runs in foreground
+- Saves registry after each check
+- User can interrupt with Ctrl+C
+- Configurable timing for speed vs efficiency
+- False positive prevention via confirmation mode
+
+**Fast Mode (default):**
+```bash
+swarmkeeper manager-loop
+```
+Stops immediately on first stopped session detection.
+
+**Conservative Mode:**
+```bash
+swarmkeeper manager-loop --confirm
+```
+Requires 2 consecutive stopped checks per session before stopping (reduces false positives).
+
+**Custom Interval:**
+```bash
+swarmkeeper manager-loop --interval 60
+```
+Checks every 60 seconds instead of default 180 seconds.
+
+**Example Workflow:**
+```bash
+# Start a few agent sessions
+swarmkeeper start "python backend.py"
+swarmkeeper start "python frontend.py"
+
+# Run loop with fast mode (default)
+swarmkeeper manager-loop
+
+# Or run with conservative mode if false positives are an issue
+swarmkeeper manager-loop --confirm
+```
+
+**Exit Behavior:**
+```
+Running manager loop
+  Interval: 180 seconds
+  Confirmation mode: disabled
+  Sessions to monitor: 2
+
+Press Ctrl+C to stop
+
+[Loop check #1] Checking sessions...
+All sessions are active. Continuing check...
+
+[Loop check #2] Checking sessions...
+Detected stopped session(s): agent-01-spider
+  agent-01-spider: stopped - stopped working
+
+Stopping loop (fast mode).
+
+Registry saved. 1 sessions tracked.
+```
+
 ### `stop`
 
 Stop a specific session or all sessions.
@@ -285,13 +359,18 @@ swarmkeeper stop all
    - Manages tmux sessions
 
 4. **Manager/Observer Module** (`swarmkeeper/manager/`)
-   - LLM-based session analysis
-   - Generates health reports
-   - Updates session status
+    - LLM-based session analysis
+    - Generates health reports
+    - Updates session status
 
-5. **CLI Interface** (`main.py`)
-   - User command-line interface
-   - Handles all user interactions
+5. **Loop Control Module** (`swarmkeeper/manager/loop.py`)
+    - Continuous monitoring loop
+    - Configurable timing and exit conditions
+    - False positive prevention
+
+6. **CLI Interface** (`main.py`)
+    - User command-line interface
+    - Handles all user interactions
 
 ### Session Naming Convention
 
@@ -332,9 +411,43 @@ swarmkeeper start "python backend.py"
 # Terminal 2
 swarmkeeper start "python frontend.py"
 
-# Terminal 3 (monitor all)
-swarmkeeper manager
+# Terminal 3 (monitor all with loop)
+swarmkeeper manager-loop
 ```
+
+### Continuous Monitoring Loop
+
+For unattended monitoring, use the manager-loop command:
+
+```bash
+# Fast mode - stops immediately when any session stops
+swarmkeeper manager-loop
+
+# Conservative mode - requires 2 checks before stopping
+swarmkeeper manager-loop --confirm
+
+# Custom interval (every 30 minutes)
+swarmkeeper manager-loop --interval 1800
+
+# Combine options
+swarmkeeper manager-loop --interval 60 --confirm
+```
+
+**When to use fast mode:**
+- You want immediate attention to stopped sessions
+- Sessions rarely have false positives
+- You're actively watching and want to react quickly
+
+**When to use confirmation mode:**
+- Sessions sometimes appear stopped briefly (network issues, loading, etc.)
+- You want to reduce false alarms
+- You can tolerate slightly longer reaction time
+
+**Tips:**
+- Use shorter intervals for faster detection (e.g., 60s)
+- Use confirmation mode for conservative monitoring
+- Interrupt loop with Ctrl+C at any time
+- Loop saves registry after each check
 
 ### Viewing Session History
 
