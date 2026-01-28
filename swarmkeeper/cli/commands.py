@@ -9,6 +9,7 @@ from ..session.manager import create_session as create_session_entry
 from ..tmux.wrapper import (
     capture_pane,
     create_session as create_tmux_session,
+    kill_session,
     list_sessions,
 )
 
@@ -40,6 +41,34 @@ def start_command(command: str | None = None, session_name: str | None = None) -
     save_sessions(sessions)
 
     return agent_name
+
+
+def stop_command(session_name: str) -> str:
+    """Stop a tmux session (mirror of tmux kill-session).
+
+    Args:
+        session_name: Name of the session to stop
+
+    Returns:
+        Confirmation message
+    """
+    sessions = load_sessions()
+
+    # Check if session exists in registry
+    if session_name not in sessions:
+        raise ValueError(
+            f"Session '{session_name}' not found in registry. Use 'swarmkeeper list' to see active sessions."
+        )
+
+    # Kill tmux session
+    if not kill_session(session_name):
+        raise RuntimeError(f"Failed to kill tmux session: {session_name}")
+
+    # Remove from registry
+    del sessions[session_name]
+    save_sessions(sessions)
+
+    return f"Stopped session '{session_name}'"
 
 
 def list_command() -> str:

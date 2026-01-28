@@ -4,7 +4,7 @@ import argparse
 import sys
 import os
 
-from swarmkeeper.cli import dump_command, list_command, manager_command, start_command
+from swarmkeeper.cli import dump_command, list_command, manager_command, start_command, stop_command
 from swarmkeeper.config.manager import load_config
 
 # Force UTF-8 encoding on Windows BEFORE any other imports
@@ -52,6 +52,13 @@ def main():
     # manager command
     subparsers.add_parser("manager", help="Run manager to check all sessions")
 
+    # stop command
+    stop_parser = subparsers.add_parser("stop", help="Stop a tmux session")
+    stop_parser.add_argument(
+        "session_name",
+        help="Name of the session to stop (e.g., 'agent-01-spider')",
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -92,6 +99,10 @@ def main():
                     print()
             else:
                 print("No sessions to check")
+
+        elif args.command == "stop":
+            output = stop_command(args.session_name)
+            print(output)
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
