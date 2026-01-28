@@ -32,10 +32,10 @@ class TestSwarmKeeperIntegration(unittest.TestCase):
         time.sleep(0.5)
 
         # List sessions
-        sessions = list_command()
+        output = list_command()
 
-        # Verify session exists
-        self.assertIn(session_name, sessions)
+        # Verify output contains session name
+        self.assertIn(session_name, output)
 
     def test_dump_session_output(self):
         """Test dumping session output."""

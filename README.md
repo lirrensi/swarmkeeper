@@ -56,6 +56,24 @@ tmux is typically pre-installed. If not:
 
 ## Installation
 
+### Using pipx (Recommended for CLI tools)
+
+```bash
+pipx install .
+# or from GitHub
+pipx install git+https://github.com/lirrensi/swarmkeeper.git
+```
+
+### Using uv
+
+```bash
+uv tool install .
+# or from GitHub
+uv tool install git+https://github.com/lirrensi/swarmkeeper.git
+```
+
+### Manual Installation
+
 1. Clone the repository:
    ```bash
    git clone <repository-url>
@@ -103,19 +121,19 @@ The config file will be automatically created on first use if it doesn't exist.
 
 ```bash
 # Start a new session
-python main.py start "echo hello"
+swarmkeeper start "echo hello"
 
 # Start with custom name
-python main.py start --name "my-agent" "echo hello"
+swarmkeeper start --name "my-agent" "echo hello"
 
 # List all sessions
-python main.py list
+swarmkeeper list
 
 # Dump session output to file
-python main.py dump
+swarmkeeper dump
 
 # Run manager to check all sessions
-python main.py manager
+swarmkeeper manager
 ```
 
 ### Workflow
@@ -123,31 +141,31 @@ python main.py manager
 1. **Start sessions**:
    ```bash
    # Agent 1: Running a task
-   python main.py start "python task.py"
+   swarmkeeper start "python task.py"
 
    # Agent 2: Monitoring logs
-   python main.py start "tail -f /var/log/app.log"
+   swarmkeeper start "tail -f /var/log/app.log"
    ```
 
 2. **Monitor sessions**:
    ```bash
    # Check health of all sessions
-   python main.py manager
+   swarmkeeper manager
    ```
 
 3. **View output**:
    ```bash
    # Dump output to file
-   python main.py dump > session-output.txt
+   swarmkeeper dump > session-output.txt
    ```
 
 4. **Clean up**:
    ```bash
    # Kill a specific session
-   python main.py stop agent-01-spider
+   swarmkeeper stop agent-01-spider
 
    # Kill all sessions
-   python main.py stop all
+   swarmkeeper stop all
    ```
 
 ---
@@ -160,7 +178,7 @@ Start a new tmux session with the given command.
 
 **Usage:**
 ```bash
-python main.py start [--name NAME] <command>
+swarmkeeper start [--name NAME] <command>
 ```
 
 **Options:**
@@ -169,8 +187,8 @@ python main.py start [--name NAME] <command>
 
 **Examples:**
 ```bash
-python main.py start "echo hello"
-python main.py start --name "my-custom-agent" "python script.py"
+swarmkeeper start "echo hello"
+swarmkeeper start --name "my-custom-agent" "python script.py"
 ```
 
 ### `list`
@@ -179,7 +197,7 @@ List all tracked sessions.
 
 **Usage:**
 ```bash
-python main.py list
+swarmkeeper list
 ```
 
 **Output:**
@@ -190,11 +208,11 @@ agent-02-bear      stopped    Session no longer exists
 
 ### `dump`
 
-Dump the output of the last session to a file.
+Dump the output of all sessions.
 
 **Usage:**
 ```bash
-python main.py dump [output_file]
+swarmkeeper dump
 ```
 
 **Options:**
@@ -212,7 +230,7 @@ Run the LLM manager to check all sessions and update their health status.
 
 **Usage:**
 ```bash
-python main.py manager
+swarmkeeper manager
 ```
 
 **Behavior:**
@@ -233,7 +251,7 @@ Stop a specific session or all sessions.
 
 **Usage:**
 ```bash
-python main.py stop <session_name> | all
+swarmkeeper stop <session_name> | all
 ```
 
 **Options:**
@@ -242,8 +260,8 @@ python main.py stop <session_name> | all
 
 **Examples:**
 ```bash
-python main.py stop agent-01-spider
-python main.py stop all
+swarmkeeper stop agent-01-spider
+swarmkeeper stop all
 ```
 
 ---
@@ -299,8 +317,8 @@ The manager uses LLM analysis to determine session health:
 Use the `--name` flag for custom naming:
 
 ```bash
-python main.py start --name "database-migration" "python migrate.py"
-python main.py start --name "frontend-dev" "npm run dev"
+swarmkeeper start --name "database-migration" "python migrate.py"
+swarmkeeper start --name "frontend-dev" "npm run dev"
 ```
 
 ### Running Multiple Agents
@@ -309,13 +327,13 @@ Start multiple sessions and monitor them together:
 
 ```bash
 # Terminal 1
-python main.py start "python backend.py"
+swarmkeeper start "python backend.py"
 
 # Terminal 2
-python main.py start "python frontend.py"
+swarmkeeper start "python frontend.py"
 
 # Terminal 3 (monitor all)
-python main.py manager
+swarmkeeper manager
 ```
 
 ### Viewing Session History
@@ -341,7 +359,7 @@ The session registry (`~/swarmkeeper/sessions.json`) contains the full history:
 ## Troubleshooting
 
 ### Session not found
-- Check session name with `python main.py list`
+- Check session name with `swarmkeeper list`
 - Verify session exists with `tmux ls`
 
 ### LLM API errors

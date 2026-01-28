@@ -4,7 +4,7 @@ import subprocess
 import shutil
 import platform
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 
 
 def get_tmux_path() -> str:
@@ -43,7 +43,7 @@ def run_tmux_command(args: list[str]) -> tuple[bool, str, str]:
     cmd = [tmux_path] + args
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=10)
         return result.returncode == 0, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return False, "", "Command timed out"
@@ -51,11 +51,11 @@ def run_tmux_command(args: list[str]) -> tuple[bool, str, str]:
         return False, "", str(e)
 
 
-def list_sessions() -> list[str]:
-    """List all active tmux session names.
+def list_sessions() -> List[Dict[str, str]]:
+    """List all active tmux sessions with status and last log.
 
     Returns:
-        List of session names
+        List of session dictionaries with name, status, and log
     """
     success, stdout, stderr = run_tmux_command(["list-sessions"])
 
@@ -65,7 +65,7 @@ def list_sessions() -> list[str]:
     # Parse output - handle various tmux formats
     # Windows tmux may not support -F flag, so parse default format
     # Default format: "session-name: N windows (created ...)"
-    sessions = []
+    session_names = []
     for line in stdout.strip().split("\n"):
         line = line.strip()
         if not line:
@@ -78,10 +78,31 @@ def list_sessions() -> list[str]:
         if ":" in line:
             session_name = line.split(":")[0].strip()
             if session_name:
-                sessions.append(session_name)
+                session_names.append(session_name)
         else:
             # Fallback: if no colon, use whole line
-            sessions.append(line)
+            session_names.append(line)
+
+    # Capture output and analyze for each session
+    sessions = []
+    for session_name in session_names:
+        try:
+            # Capture last 10 lines of output
+            output = capture_pane(session_name, lines=10)
+            # Extract last non-empty line as log
+            log_lines = [line.strip() for line in output.split("\n") if line.strip()]
+            last_log = log_lines[-1] if log_lines else "No output"
+
+            sessions.append({"name": session_name, "status": "unknown", "log": last_log})
+        except Exception:
+            # If capture fails, just return basic info
+            sessions.append(
+                {
+                    "name": session_name,
+                    "status": "error",
+                    "log": "Failed to capture output",
+                }
+            )
 
     return sessions
 

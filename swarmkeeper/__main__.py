@@ -2,9 +2,20 @@
 
 import argparse
 import sys
+import os
 
 from swarmkeeper.cli import dump_command, list_command, manager_command, start_command
 from swarmkeeper.config.manager import load_config
+
+# Force UTF-8 encoding on Windows BEFORE any other imports
+if sys.platform == "win32":
+    # Change console code page to UTF-8
+    os.system("chcp 65001 >nul 2>&1")
+    # Reconfigure stdout/stderr to use UTF-8
+    if sys.stdout.encoding != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8")
+    if sys.stderr.encoding != "utf-8":
+        sys.stderr.reconfigure(encoding="utf-8")
 
 
 def main():
@@ -53,13 +64,8 @@ def main():
             print(f"Created session: {session_name}")
 
         elif args.command == "list":
-            sessions = list_command()
-            if sessions:
-                print("Active sessions:")
-                for session in sessions:
-                    print(f"  - {session}")
-            else:
-                print("No active sessions")
+            output = list_command()
+            print(output)
 
         elif args.command == "dump":
             outputs = dump_command()
@@ -78,7 +84,7 @@ def main():
                 print("Session Health Report:")
                 print(f"{'-' * 60}")
                 for report in reports:
-                    status_icon = "✓" if report["status"] == "working" else "✗"
+                    status_icon = "[OK]" if report["status"] == "working" else "[X]"
                     print(f"{status_icon} {report['session_name']}")
                     print(f"  Status: {report['status']}")
                     print(f"  Log: {report['log']}")

@@ -42,13 +42,37 @@ def start_command(command: str | None = None, session_name: str | None = None) -
     return agent_name
 
 
-def list_command() -> list[str]:
-    """List all active sessions.
+def list_command() -> str:
+    """List all active sessions with status and last log.
 
     Returns:
-        List of session names
+        Formatted string with session information
     """
-    return list_sessions()
+    sessions = list_sessions()
+
+    if not sessions:
+        return "No active sessions"
+
+    # Build formatted output
+    output = "Active Sessions:\n"
+    output += "=" * 60 + "\n"
+
+    for session in sessions:
+        name = session["name"]
+        status = session["status"]
+        log = session["log"]
+
+        # Truncate log if too long
+        if len(log) > 100:
+            log = log[:97] + "..."
+
+        # Format status indicator
+        status_color = "[OK]" if status == "unknown" else "[?]"
+        output += f"{name}: {status_color} {status}\n"
+        output += f"  {log}\n"
+        output += "-" * 60 + "\n"
+
+    return output
 
 
 def dump_command() -> dict[str, str]:
@@ -60,7 +84,8 @@ def dump_command() -> dict[str, str]:
     sessions = list_sessions()
     outputs = {}
 
-    for session_name in sessions:
+    for session in sessions:
+        session_name = session["name"]
         outputs[session_name] = capture_pane(session_name, lines=100)
 
     return outputs
