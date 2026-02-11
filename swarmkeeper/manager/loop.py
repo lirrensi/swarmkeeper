@@ -3,9 +3,10 @@
 import os
 from time import sleep
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from ..config.manager import load_sessions, save_sessions
+from ..notifications import create_notification_payload, send_notification
 from .observer import run_manager
 
 
@@ -13,6 +14,7 @@ def run_loop(
     sessions_registry: Dict[str, dict],
     interval_seconds: int = 180,
     require_confirmation: bool = False,
+    notify_handler: Optional[str] = None,
 ) -> Dict[str, dict]:
     """Run continuous monitoring loop.
 
@@ -25,6 +27,7 @@ def run_loop(
         interval_seconds: Time between checks in seconds. Default is 180 seconds (3 minutes).
         require_confirmation: If True, requires 2 consecutive stopped checks per session
             before stopping to reduce false positives. Default is False.
+        notify_handler: Notification handler path, empty string to disable, or None for OS default.
 
     Returns:
         Updated sessions registry with new check entries.
@@ -36,6 +39,7 @@ def run_loop(
         - Saves registry after each check
         - Non-blocking - reports and exits
         - Gracefully handles Ctrl+C
+        - Sends notifications when sessions stop (if enabled)
 
     Example:
         >>> # Fast mode (default) - stops immediately on first stopped session
@@ -52,6 +56,7 @@ def run_loop(
         - No token waste from checking idle sessions
         - Configurable balance between speed and efficiency
         - False positive prevention via confirmation mode
+        - Notifications sent when sessions stop (if handler configured)
 
     Raises:
         KeyboardInterrupt: If user interrupts with Ctrl+C
@@ -82,6 +87,18 @@ def run_loop(
                         f"  {session_name}: {session.get('last_status', 'unknown')} - {session.get('last_log', 'No log')}"
                     )
 
+                # Send notification (if not disabled)
+                if notify_handler != "":
+                    try:
+                        payload = create_notification_payload(
+                            sessions_registry=updated_registry,
+                            stopped_sessions=stopped_sessions,
+                            loop_iteration=iteration,
+                        )
+                        send_notification(payload, handler_command=notify_handler)
+                    except Exception as e:
+                        print(f"  [Notification error: {e}]")
+
                 # Exit condition
                 if not require_confirmation:
                     print("\nStopping loop (fast mode).")
@@ -94,7 +111,7 @@ def run_loop(
                 print("All sessions are active. Continuing check...")
 
             # Wait before next iteration
-            if iteration < 1:  # Don't sleep on first iteration
+            if iteration > 1:  # Sleep after first iteration completes
                 sleep(interval_seconds)
 
             # Update sessions registry

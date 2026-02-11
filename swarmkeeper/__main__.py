@@ -72,6 +72,12 @@ def main():
         action="store_true",
         help="Require 2 consecutive checks before stopping",
     )
+    manager_loop_parser.add_argument(
+        "--notify-handler",
+        dest="notify_handler",
+        default=None,
+        help="Notification handler: path to script (custom), empty string (disabled), or omit (OS default)",
+    )
 
     # stop command
     stop_parser = subparsers.add_parser("stop", help="Stop a tmux session")
@@ -122,7 +128,9 @@ def main():
                 print("No sessions to check")
 
         elif args.command == "manager-loop":
-            manager_loop_command(interval=args.interval, confirm=args.confirm)
+            manager_loop_command(
+                interval=args.interval, confirm=args.confirm, notify_handler=args.notify_handler
+            )
 
         elif args.command == "stop":
             output = stop_command(args.session_name)

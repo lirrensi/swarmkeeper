@@ -136,7 +136,11 @@ def manager_command() -> list[dict]:
     return [report.model_dump() for report in reports]
 
 
-def manager_loop_command(interval: int | None = None, confirm: bool = False) -> dict:
+def manager_loop_command(
+    interval: int | None = None,
+    confirm: bool = False,
+    notify_handler: str | None = None,
+) -> dict:
     """Run manager loop with configurable interval.
 
     Repeatedly checks all sessions and stops when any session becomes stopped.
@@ -146,6 +150,7 @@ def manager_loop_command(interval: int | None = None, confirm: bool = False) -> 
         interval: Check interval in seconds. Default is 180 seconds (3 minutes).
         confirm: If True, requires 2 consecutive stopped checks per session before stopping
             to reduce false positives. Default is False.
+        notify_handler: Notification handler path, empty string to disable, or None for OS default.
 
     Returns:
         Updated sessions registry with new check entries.
@@ -176,12 +181,16 @@ def manager_loop_command(interval: int | None = None, confirm: bool = False) -> 
     print(f"\nRunning manager loop")
     print(f"  Interval: {interval or 180} seconds")
     print(f"  Confirmation mode: {'enabled' if confirm else 'disabled'}")
+    print(f"  Notifications: {notify_handler if notify_handler is not None else 'OS default'}")
     print(f"  Sessions to monitor: {len(sessions)}")
     print("\nPress Ctrl+C to stop\n")
 
     # Run loop with configured parameters
     updated_sessions = run_loop(
-        sessions, interval_seconds=interval or 180, require_confirmation=confirm
+        sessions,
+        interval_seconds=interval or 180,
+        require_confirmation=confirm,
+        notify_handler=notify_handler,
     )
 
     # Save registry

@@ -17,6 +17,15 @@ Overseer is just a small layer to get current state and monitor.
 1. Open a terminal and run `swarmkeeper start` => opens tmux => you enter your coding agent
 2. (in separate pane) Run `swarmkeeper list` to see tracked sessions, `swarmkeeper manager` to analyze them.
 
+## Why this exists when...
+
+Why you solve a simple task with llm, just use some hooks!
+
+- Not all coding agents have turn end, and you have to fork and stay behind to add this.
+- Not all of them support ACP, and even if it was the case - it may be inconvenient to your workflow. We want to work everywhere at once and support whatever.
+- Just looking is not all of it, greater goal - to intelligently monitor and autorespond.
+
+
 ### Key Features
 
 - **Session Management**: Automatic animal-based naming (agent-01-spider, agent-02-bear, etc.)
