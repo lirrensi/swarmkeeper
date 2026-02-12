@@ -30,6 +30,8 @@ Why you solve a simple task with llm, just use some hooks!
 
 - **Session Management**: Automatic animal-based naming (agent-01-spider, agent-02-bear, etc.)
 - **LLM Analysis**: Automatically detects if agents are working or stopped
+- **Pattern Monitoring**: Simple text-based pattern matching with fuzzy support
+- **Auto-Type**: Automatically send keystrokes when patterns are detected
 - **Session Registry**: Tracks all sessions and their health history
 - **Custom Naming**: Use `--name` flag for custom session names
 - **Auto-configuration**: Creates config files automatically on first use
@@ -328,6 +330,141 @@ Stopping loop (fast mode).
 Registry saved. 1 sessions tracked.
 ```
 
+### `pattern`
+
+Simple pattern-based check on all sessions. Searches for text patterns in session output without LLM calls.
+
+**Usage:**
+```bash
+swarmkeeper pattern --string PATTERN [options]
+```
+
+**Options:**
+- `--string PATTERN`: Pattern to search for (can be specified multiple times for OR logic)
+- `--regex`: Treat patterns as regular expressions
+- `--fuzzy`: Enable fuzzy matching (ignores extra spaces, case insensitive)
+- `--fuzzy-threshold 0-100`: Fuzzy match threshold (default: 80)
+- `--lines N`: Number of lines to check (default: 100)
+
+**Examples:**
+```bash
+# Search for errors
+swarmkeeper pattern --string "error"
+
+# Multiple patterns (OR logic - any match triggers)
+swarmkeeper pattern --string "error" --string "failed" --string "exception"
+
+# Fuzzy matching for prompts with extra spaces
+swarmkeeper pattern --string "continue?" --fuzzy
+
+# Regex mode for complex patterns
+swarmkeeper pattern --string "(error|fail|crash)" --regex
+```
+
+**Output:**
+```
+Pattern Check Results:
+------------------------------------------------------------
+[MATCH] agent-01-spider
+  Pattern: error
+  Text: Error: Failed to connect to database...
+
+[NO MATCH] agent-02-bear
+
+Registry saved. 1 sessions tracked.
+```
+
+**Exit Code:**
+- `0`: At least one pattern matched
+- `1`: No patterns matched or no sessions to check
+
+### `pattern-loop`
+
+Continuous pattern monitoring with optional auto-type intervention. Monitors sessions for text patterns and optionally sends keystrokes when detected.
+
+**Usage:**
+```bash
+swarmkeeper pattern-loop --string PATTERN [options]
+```
+
+**Options:**
+- `--string PATTERN`: Pattern to search for (can be specified multiple times)
+- `--regex`: Treat patterns as regular expressions
+- `--fuzzy`: Enable fuzzy matching (ignores extra spaces, case insensitive)
+- `--fuzzy-threshold 0-100`: Fuzzy match threshold (default: 80)
+- `--lines N`: Number of lines to check (default: 100)
+- `--interval SECONDS`: Check interval in seconds (default: 60)
+- `--auto-type KEYS`: Keys to send when pattern detected (e.g., `y\n` for 'y' + Enter)
+- `--auto-type-max N`: Max auto-type interventions per session (default: 2)
+- `--confirm`: Require 2 consecutive detections before action
+- `--notify-handler PATH`: Notification handler (script path, empty to disable, or omit for OS default)
+
+**Behavior:**
+- Monitors all sessions for pattern matches
+- When pattern detected:
+  - If `--auto-type` set: sends keys to that session
+  - Tracks auto-type count per session
+  - Stops if auto-type-max reached for any session
+- Without auto-type: reports and exits on first detection
+- Sends notifications when patterns detected (same as manager-loop)
+
+**Examples:**
+```bash
+# Watch for error patterns
+swarmkeeper pattern-loop --string "error" --string "failed"
+
+# Auto-respond to prompts
+swarmkeeper pattern-loop \
+  --string "continue?" --string "proceed?" --string "ok?" \
+  --fuzzy --auto-type "y\n" --auto-type-max 3
+
+# Regex mode with custom interval
+swarmkeeper pattern-loop --string "(error|fail|crash)" --regex --interval 30
+
+# With confirmation mode and notifications
+swarmkeeper pattern-loop --string "done" --confirm --notify-handler ./alert.sh
+```
+
+**Special Keys in Auto-Type:**
+- `\n` or `Enter`: Send Enter key
+- `\t` or `Tab`: Send Tab key
+- `C-c` or `Ctrl-c`: Send Ctrl+C
+- `\\`: Send backslash
+
+**Example Workflow:**
+```bash
+# Start a session that prompts for input
+swarmkeeper start "python script.py"
+
+# Monitor and auto-respond to prompts
+swarmkeeper pattern-loop --string "Continue (y/n)?" --auto-type "y\n" --auto-type-max 5
+```
+
+**Output:**
+```
+Running pattern monitoring loop
+  Patterns: ['continue?', 'proceed?']
+  Regex mode: disabled
+  Fuzzy mode: enabled
+  Fuzzy threshold: 80%
+  Lines to check: 100
+  Interval: 60 seconds
+  Confirmation mode: disabled
+  Auto-type: 'y\n'
+  Auto-type max: 3
+  Sessions to monitor: 1
+
+Press Ctrl+C to stop
+
+[Pattern check #1] Checking for patterns: ['continue?', 'proceed?']
+  [MATCH] agent-01-spider: 'continue?'
+    -> Do you want to continue? (y/n)
+    -> Auto-typing: 'y\n'
+    -> Auto-type count: 1/3
+
+Waiting 60 seconds before next check...
+```
+
 ### `stop`
 
 Stop a specific session or all sessions.
@@ -373,11 +510,17 @@ swarmkeeper stop all
     - Updates session status
 
 5. **Loop Control Module** (`swarmkeeper/manager/loop.py`)
-    - Continuous monitoring loop
-    - Configurable timing and exit conditions
-    - False positive prevention
+     - Continuous monitoring loop
+     - Configurable timing and exit conditions
+     - False positive prevention
 
-6. **CLI Interface** (`main.py`)
+6. **Pattern Monitoring Module** (`swarmkeeper/pattern/`)
+     - Text-based pattern matching
+     - Fuzzy matching for forgiving text comparison
+     - Auto-type intervention
+     - Pattern-specific monitoring loop
+
+7. **CLI Interface** (`main.py`)
     - User command-line interface
     - Handles all user interactions
 
@@ -458,6 +601,35 @@ swarmkeeper manager-loop --interval 60 --confirm
 - Interrupt loop with Ctrl+C at any time
 - Loop saves registry after each check
 
+### Pattern-Based Monitoring
+
+For simple text-based monitoring without LLM calls, use the pattern commands:
+
+```bash
+# One-shot pattern check
+swarmkeeper pattern --string "error"
+
+# Continuous pattern monitoring
+swarmkeeper pattern-loop --string "error" --string "failed"
+
+# Auto-respond to prompts
+swarmkeeper pattern-loop --string "continue?" --auto-type "y\n"
+
+# Fuzzy matching for forgiving text comparison
+swarmkeeper pattern-loop --string "continue?" --fuzzy --auto-type "y\n"
+```
+
+**When to use pattern mode:**
+- You know exactly what text to look for
+- No LLM API calls needed (faster, no cost)
+- Need fuzzy matching for variable output
+- Want auto-type intervention for prompts
+
+**When to use LLM manager mode:**
+- Need intelligent detection of session state
+- Output format varies unpredictably
+- Want contextual understanding of session health
+
 ### Viewing Session History
 
 The session registry (`~/swarmkeeper/sessions.json`) contains the full history:
@@ -503,8 +675,11 @@ The session registry (`~/swarmkeeper/sessions.json`) contains the full history:
 Goal: one interface to rule them all
 
 [x] basic checking the current state on demand
-[ ] watch sessions and analyze when they stop/wait for you to check/errored
-[ ] notifications when a session stops working
+[x] watch sessions and analyze when they stop/wait for you to check/errored
+[x] notifications when a session stops working
+[x] pattern-based monitoring (simple text matching without LLM)
+[x] auto-type intervention (send keys when patterns detected)
+[x] fuzzy matching for forgiving text comparison
 
 ??? your idea? web gui?
 

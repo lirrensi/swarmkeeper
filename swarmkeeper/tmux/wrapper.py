@@ -228,3 +228,107 @@ def kill_session(session_name: str) -> bool:
         print(f"Failed to kill session: {stderr}")
 
     return success
+
+
+def send_keys(session_name: str, keys: str) -> bool:
+    """Send keystrokes to tmux session.
+
+    Args:
+        session_name: Name of the tmux session
+        keys: Keys to send. Supports:
+            - Literal text: "hello world"
+            - Special keys: "Enter", "C-c" (Ctrl+C), "C-d" (Ctrl+D)
+            - Combinations: "y Enter" (sends 'y' then Enter)
+
+    Returns:
+        True if keys sent successfully
+
+    Examples:
+        >>> send_keys("my-session", "hello")  # Type "hello"
+        >>> send_keys("my-session", "Enter")  # Press Enter
+        >>> send_keys("my-session", "C-c")    # Send Ctrl+C
+        >>> send_keys("my-session", "y\\n")    # Send 'y' + newline
+    """
+    # Parse special key sequences
+    key_sequence = _parse_key_sequence(keys)
+
+    success, _, stderr = run_tmux_command(["send-keys", "-t", session_name] + key_sequence)
+
+    if not success:
+        print(f"Failed to send keys to session: {stderr}")
+
+    return success
+
+
+def _parse_key_sequence(keys: str) -> list[str]:
+    """Parse a key sequence string into tmux send-keys arguments.
+
+    Handles:
+    - \\n or Enter -> Enter key
+    - \\t or Tab -> Tab key
+    - C-x or Ctrl-x -> Ctrl+x
+    - M-x or Alt-x -> Alt+x
+    - Literal text -> typed as-is
+
+    Args:
+        keys: Key sequence string
+
+    Returns:
+        List of arguments for tmux send-keys
+    """
+    result = []
+    i = 0
+
+    while i < len(keys):
+        char = keys[i]
+
+        # Handle escape sequences
+        if char == "\\" and i + 1 < len(keys):
+            next_char = keys[i + 1]
+            if next_char == "n":
+                result.append("Enter")
+                i += 2
+                continue
+            elif next_char == "t":
+                result.append("Tab")
+                i += 2
+                continue
+            elif next_char == "\\":
+                result.append("\\")
+                i += 2
+                continue
+
+        # Handle special key names
+        remaining = keys[i:]
+        if remaining.startswith("Enter") or remaining.startswith("enter"):
+            result.append("Enter")
+            i += 5
+            continue
+        elif remaining.startswith("Tab") or remaining.startswith("tab"):
+            result.append("Tab")
+            i += 3
+            continue
+        elif remaining.startswith("Space") or remaining.startswith("space"):
+            result.append("Space")
+            i += 5
+            continue
+
+        # Handle Ctrl+ sequences (C-x or Ctrl-x)
+        if remaining.upper().startswith("C-") and len(remaining) >= 3:
+            ctrl_char = remaining[2].upper()
+            if ctrl_char.isalpha() or ctrl_char in "@[\\]^_":
+                result.append(f"C-{ctrl_char}")
+                i += 3
+                continue
+        elif remaining.upper().startswith("CTRL-") and len(remaining) >= 6:
+            ctrl_char = remaining[5].upper()
+            if ctrl_char.isalpha() or ctrl_char in "@[\\]^_":
+                result.append(f"C-{ctrl_char}")
+                i += 6
+                continue
+
+        # Regular character
+        result.append(char)
+        i += 1
+
+    return result

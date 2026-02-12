@@ -5,6 +5,8 @@ from .commands import (
     list_command,
     manager_command,
     manager_loop_command,
+    pattern_command,
+    pattern_loop_command,
     start_command,
     stop_command,
 )
@@ -15,5 +17,7 @@ __all__ = [
     "dump_command",
     "manager_command",
     "manager_loop_command",
+    "pattern_command",
+    "pattern_loop_command",
     "stop_command",
 ]
